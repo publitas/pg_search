@@ -16,11 +16,12 @@ module PgSearch
       scope = include_table_aliasing_for_rank(scope)
       rank_table_alias = scope.pg_search_rank_table_alias(include_counter: true)
 
-      scope
+      apply_conditions(scope
         .joins(rank_join(rank_table_alias))
-        .order(Arel.sql("#{rank_table_alias}.rank DESC, #{order_within_rank}"))
+        .order(order_clause(rank_table_alias))
         .extend(WithPgSearchRank)
-        .extend(WithPgSearchHighlight[feature_for(:tsearch)])
+        .extend(WithPgSearchHighlight[feature_for(:tsearch)]),
+      )
     end
 
     module WithPgSearchHighlight
@@ -163,6 +164,8 @@ module PgSearch
     end
 
     def rank_join(rank_table_alias)
+      return unless config.rank_with_subquery?
+
       "INNER JOIN (#{subquery.to_sql}) AS #{rank_table_alias} ON #{primary_key} = #{rank_table_alias}.pg_search_id"
     end
 
@@ -172,6 +175,17 @@ module PgSearch
       scope.all.spawn.tap do |new_scope|
         new_scope.instance_eval { extend PgSearchRankTableAliasing }
       end
+    end
+
+    def order_clause(rank_table_alias)
+      rank_source = config.rank_with_subquery? ? "#{rank_table_alias}.rank" : rank
+      Arel.sql("#{rank_source} DESC, #{order_within_rank}")
+    end
+
+    def apply_conditions(scope)
+      return scope if config.rank_with_subquery?
+
+      scope.where(conditions)
     end
   end
 end

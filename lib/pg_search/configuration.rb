@@ -75,16 +75,20 @@ module PgSearch
       options[:order_within_rank]
     end
 
+    def rank_with_subquery?
+      options[:rank_subquery]
+    end
+
     private
 
     attr_reader :options
 
     def default_options
-      {using: :tsearch}
+      {using: :tsearch, rank_subquery: true}
     end
 
     VALID_KEYS = %w[
-      against ranked_by ignoring using query associated_against order_within_rank
+      against ranked_by ignoring using query associated_against order_within_rank rank_subquery
     ].map(&:to_sym)
 
     VALID_VALUES = {
